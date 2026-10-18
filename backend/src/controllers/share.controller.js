@@ -113,7 +113,13 @@ export const decideApplication = asyncHandler(async (req, res) => {
   if (!share) throw new ApiError(400, "This share request is no longer available");
   const booking = await Booking.findOneAndUpdate(
     { _id: share.booking, user: req.user._id, status: "confirmed", shareStatus: "open", partner: null },
-    { partner: application.applicant, shareStatus: "shared", userPays: share.splitAmount, partnerPays: share.splitAmount },
+    {
+      partner: application.applicant,
+      shareStatus: "shared",
+      userPays: share.splitAmount,
+      partnerPays: share.splitAmount,
+      $push: { guestAttendance: { guest: application.applicant, status: "expected" } },
+    },
     { new: true }
   );
   if (!booking) throw new ApiError(400, "This stay is no longer available");

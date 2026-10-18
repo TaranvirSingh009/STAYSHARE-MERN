@@ -8,7 +8,7 @@ const welcomeLines = ["A better stay starts here.", "Your next favourite place a
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", gender: "", role: "user" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", gender: "", role: "user", acceptedAgreement: false });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
@@ -74,6 +74,7 @@ export default function Register() {
         </select>
         <label className="auth-label" htmlFor="register-password">Password</label>
         <input id="register-password" name="password" type="password" autoComplete="new-password" minLength={6} placeholder="At least 6 characters" value={form.password} onChange={handleChange} required />
+        <label className="agreement-consent"><input type="checkbox" name="acceptedAgreement" checked={form.acceptedAgreement} onChange={(e) => setForm({ ...form, acceptedAgreement: e.target.checked })} required /> <span>I agree to the <Link to="/user-agreement" target="_blank" rel="noreferrer">User Agreement</Link>.</span></label>
         {error && <p className="error auth-error" role="alert">{error}</p>}
         <button className="btn-primary auth-submit" disabled={saving}>{saving ? "Creating your account…" : "Create account"}</button>
         <p className="muted auth-footer">Already have an account? <Link to="/login">Log in</Link></p>

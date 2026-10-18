@@ -37,13 +37,14 @@ const safeUser = (user) => ({
 });
 
 export const register = asyncHandler(async (req, res) => {
-  const { name, email, password, role, phone, gender } = req.body;
+  const { name, email, password, role, phone, gender, acceptedAgreement } = req.body;
   if (!name || !email || !password || !phone || !gender) throw new ApiError(400, "Name, email, password, phone, and gender are required");
+  if (acceptedAgreement !== true) throw new ApiError(400, "Please accept the User Agreement before creating an account");
   if (!["male", "female", "non_binary", "prefer_not_to_say"].includes(gender)) throw new ApiError(400, "Select a valid gender option");
   if (await User.findOne({ email })) throw new ApiError(409, "Email already registered");
 
   const safeRole = role === "admin" ? "admin" : "user";
-  const user = await User.create({ name, email, password, phone, gender, role: safeRole, verificationStatus: "pending" });
+  const user = await User.create({ name, email, password, phone, gender, role: safeRole, verificationStatus: "pending", acceptedAgreementAt: new Date(), agreementVersion: "2026-10-18" });
   res.status(201).json(new ApiResponse(201, safeUser(user), "Registered. Your profile is waiting for verification."));
 });
 

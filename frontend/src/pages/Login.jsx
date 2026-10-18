@@ -59,6 +59,7 @@ export default function Login() {
           {error && <p className="error auth-error" role="alert">{error}</p>}
           <button className="btn-primary auth-submit" disabled={loggingIn}>{loggingIn ? "Logging you in…" : "Log in"}</button>
           <p className="muted auth-footer">New to StayShare? <Link to="/register">Create an account</Link></p>
+          <p className="muted auth-footer">Trouble signing in? <Link to="/help-support">Get login help</Link></p>
         </form>
 
         <section className="demo-login" aria-label="Demo accounts">

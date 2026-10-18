@@ -79,7 +79,7 @@ export default function PropertyDetails() {
         handler: async (result) => {
           try {
             await api.post(`/bookings/${booking._id}/verify-payment`, result);
-            navigate("/my-bookings");
+            navigate(`/receipt/${booking._id}`);
           } catch (err) {
             setError(errMsg(err));
             setPaying(false);
@@ -128,6 +128,7 @@ export default function PropertyDetails() {
           <h3>About this place</h3>
           <p>{property.description}</p>
           <p className="muted">Hosted by {property.owner?.name}</p>
+          {(property.contactPhone || property.contactEmail) && <p className="muted">Stay contact: {property.contactPhone && <a href={`tel:${property.contactPhone}`}>{property.contactPhone}</a>} {property.contactEmail && <a href={`mailto:${property.contactEmail}`}>{property.contactEmail}</a>}</p>}
         </div>
 
         <div className="booking-box">

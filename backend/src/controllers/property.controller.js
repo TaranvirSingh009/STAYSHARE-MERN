@@ -33,7 +33,7 @@ export const getMyProperties = asyncHandler(async (req, res) => {
 });
 
 export const createProperty = asyncHandler(async (req, res) => {
-  const { title, description, price, location, type, maxGuests } = req.body;
+  const { title, description, price, location, type, maxGuests, contactPhone, contactEmail } = req.body;
   const parsedPrice = Number(price);
   const parsedMaxGuests = maxGuests === undefined || maxGuests === "" ? 2 : Number(maxGuests);
   if (!title?.trim() || !description?.trim() || !location?.trim() || !type || !Number.isFinite(parsedPrice) || parsedPrice < 1) {
@@ -55,7 +55,7 @@ export const createProperty = asyncHandler(async (req, res) => {
   if (req.user.verificationStatus === "rejected" || req.user.verificationStatus === "pending") throw new ApiError(403, "Your profile must be verified before publishing listings");
   const property = await Property.create({
     title: title.trim(), description: description.trim(), price: parsedPrice,
-    location: location.trim(), type, maxGuests: parsedMaxGuests, images, owner: req.user._id, approvalStatus: "pending",
+    location: location.trim(), contactPhone: String(contactPhone || "").trim(), contactEmail: String(contactEmail || "").trim().toLowerCase(), type, maxGuests: parsedMaxGuests, images, owner: req.user._id, approvalStatus: "pending",
   });
   res.status(201).json(new ApiResponse(201, property, "Listing submitted for admin approval"));
 });

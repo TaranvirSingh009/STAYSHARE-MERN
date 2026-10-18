@@ -153,4 +153,14 @@ New guest and host accounts include a phone number and gender, then enter a manu
 Room-share requests are reviewed by the guest who booked the stay. Applications are limited to matching gender profiles; the owner can approve one guest or reject an application from **My bookings**.
 
 Guests who completed a stay can leave one 1–5 star review per booking. Listing cards and detail pages show average ratings and reviews. Use the **Dark** toggle in the top navigation to change themes; the selection is saved in the browser.
+
+## Receipts and support contact setup
+
+After a verified payment, StayShare opens a printable receipt page with the guest, booking dates, amount and payment reference. Hosts can add a property helpline and email in the host dashboard; those details appear on the receipt, with the host account contact as a fallback. When email delivery is configured, the same receipt is emailed to the guest.
+
+To send booking emails, create a Resend API key and set `RESEND_API_KEY` and `MAIL_FROM` in `backend/.env`. Resend requires a sender address that is allowed for your account; verify a domain before sending to regular customers. Set `SUPPORT_EMAIL` and `SUPPORT_PHONE` in `backend/.env` for the receipt and email support details. Set the matching `VITE_SUPPORT_EMAIL` and `VITE_SUPPORT_PHONE` in `frontend/.env` so the Help & Support page can show them. Restart both servers after changing environment files. Email delivery is optional for local use; receipts remain available in the signed-in booking flow.
+
+The **Help & Support**, **About**, and **User Agreement** pages are linked from the site footer. New account registration requires agreement acceptance. Unknown URLs open a small Snake game with keyboard and mobile touch controls, plus a link back to the stays page.
+
+Hosts can see booking and collection totals alongside arriving guests’ contact details. For each guest, the host can confirm the guest at the property, mark check-in, then record check-out. Shared bookings show each guest separately.
 "# STAYSHARE-MERN" 

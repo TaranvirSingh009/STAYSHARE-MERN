@@ -12,6 +12,8 @@ const userSchema = new mongoose.Schema(
     gender: { type: String, enum: ["male", "female", "non_binary", "prefer_not_to_say"], default: "prefer_not_to_say" },
     verificationStatus: { type: String, enum: ["pending", "verified", "rejected"], default: "pending" },
     verificationNote: { type: String, default: "" },
+    acceptedAgreementAt: { type: Date, default: null },
+    agreementVersion: { type: String, default: "" },
     avatar: { type: String, default: "" },
     refreshToken: { type: String },
   },

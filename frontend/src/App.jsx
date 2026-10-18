@@ -10,6 +10,12 @@ import MyBookings from "./pages/MyBookings";
 import SharedRooms from "./pages/SharedRooms";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdmin from "./pages/SuperAdmin";
+import Receipt from "./pages/Receipt";
+import HelpSupport from "./pages/HelpSupport";
+import About from "./pages/About";
+import UserAgreement from "./pages/UserAgreement";
+import NotFound from "./pages/NotFound";
+import Footer from "./components/Footer";
 
 export default function App() {
   const location = useLocation();
@@ -37,7 +43,11 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/help-support" element={<HelpSupport />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/user-agreement" element={<UserAgreement />} />
           <Route path="/property/:id" element={<PropertyDetails />} />
+          <Route path="/receipt/:id" element={<ProtectedRoute roles={["user"]}><Receipt /></ProtectedRoute>} />
           <Route
             path="/my-bookings"
             element={<ProtectedRoute roles={["user"]}><MyBookings /></ProtectedRoute>}
@@ -54,8 +64,10 @@ export default function App() {
             path="/superadmin"
             element={<ProtectedRoute roles={["superadmin"]}><SuperAdmin /></ProtectedRoute>}
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+      <Footer />
       {toast && <div className="welcome-toast" role="status"><span>✳</span>{toast}</div>}
     </>
   );

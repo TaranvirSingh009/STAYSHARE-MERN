@@ -6,6 +6,8 @@ const propertySchema = new mongoose.Schema(
     description: { type: String, required: true },
     price: { type: Number, required: true, min: 1 },
     location: { type: String, required: true, trim: true },
+    contactPhone: { type: String, trim: true, default: "" },
+    contactEmail: { type: String, trim: true, lowercase: true, default: "" },
     type: { type: String, enum: ["hotel", "hostel", "flat", "apartment"], required: true },
     maxGuests: { type: Number, default: 2 },
     images: [{ type: String }],
