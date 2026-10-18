@@ -1,0 +1,122 @@
+import { useEffect, useState } from "react";
+import api, { errMsg } from "../api/axios";
+import { imageUrl } from "../api/imageUrl";
+
+export default function SuperAdmin() {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [message, setMessage] = useState("");
+
+  const load = async () => {
+    try {
+      const [statsRes, usersRes, propertiesRes] = await Promise.all([
+        api.get("/superadmin/stats"),
+        api.get("/superadmin/users"),
+        api.get("/superadmin/listings"),
+      ]);
+      setStats(statsRes.data.data);
+      setUsers(usersRes.data.data);
+      setProperties(propertiesRes.data.data);
+    } catch (err) {
+      setMessage(errMsg(err));
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const changeRole = async (id, role) => {
+    try {
+      await api.patch(`/superadmin/users/${id}/role`, { role });
+      await load();
+      setMessage("User role updated");
+    } catch (err) {
+      setMessage(errMsg(err));
+    }
+  };
+
+  const removeUser = async (id) => {
+    try {
+      await api.delete(`/superadmin/users/${id}`);
+      await load();
+      setMessage("User deleted");
+    } catch (err) {
+      setMessage(errMsg(err));
+    }
+  };
+
+  const hideProperty = async (id) => {
+    try {
+      await api.delete(`/properties/${id}`);
+      await load();
+      setMessage("Listing hidden");
+    } catch (err) {
+      setMessage(errMsg(err));
+    }
+  };
+
+  const decide = async (path, status) => {
+    try { await api.patch(path, { status }); await load(); setMessage(`Request ${status}`); }
+    catch (err) { setMessage(errMsg(err)); }
+  };
+
+  return (
+    <div>
+      <h2>Control panel</h2>
+      {message && <p className="notice">{message}</p>}
+
+      {stats && (
+        <div className="stats">
+          <div><strong>{stats.users}</strong><span>Guests</span></div>
+          <div><strong>{stats.admins}</strong><span>Hosts</span></div>
+          <div><strong>{stats.properties}</strong><span>Listings</span></div>
+          <div><strong>{stats.bookings}</strong><span>Active bookings</span></div>
+        </div>
+      )}
+
+      <h3>Users</h3>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Phone / gender</th><th>Verification</th><th>Role</th><th></th></tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user._id}>
+              <td>{user.name}</td>
+              <td>{user.email}</td>
+              <td>{user.phone || "—"} / {user.gender || "not set"}</td>
+              <td>{user.verificationStatus || "verified"} {user.verificationStatus === "pending" && <><button className="btn-outline" onClick={() => decide(`/superadmin/users/${user._id}/verification`, "verified")}>Verify</button> <button className="btn-outline" onClick={() => decide(`/superadmin/users/${user._id}/verification`, "rejected")}>Reject</button></>}</td>
+              <td>
+                {user.role === "superadmin" ? "superadmin" : (
+                  <select value={user.role} onChange={(e) => changeRole(user._id, e.target.value)}>
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                  </select>
+                )}
+              </td>
+              <td>
+                {user.role !== "superadmin" && (
+                  <button className="btn-outline" onClick={() => removeUser(user._id)}>Delete</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h3>Listings</h3>
+      {properties.length === 0 && <p>No active listings.</p>}
+      {properties.map((property) => (
+        <div className="row-card" key={property._id}>
+          <img src={imageUrl(property.images?.[0])} alt={property.title} />
+          <div className="grow">
+            <h4>{property.title}</h4>
+            <p className="muted">{property.location} - {property.owner?.name || "Unknown host"} · {property.approvalStatus || "approved"}</p>
+          </div>
+          {property.approvalStatus === "pending" && <><button className="btn-primary" onClick={() => decide(`/superadmin/listings/${property._id}/review`, "approved")}>Approve</button><button className="btn-outline" onClick={() => decide(`/superadmin/listings/${property._id}/review`, "rejected")}>Reject</button></>}
+          <button className="btn-outline" onClick={() => hideProperty(property._id)}>Hide listing</button>
+        </div>
+      ))}
+    </div>
+  );
+}
