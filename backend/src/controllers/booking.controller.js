@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { Booking } from "../models/booking.model.js";
 import { Property } from "../models/property.model.js";
 import { ShareRequest } from "../models/shareRequest.model.js";
@@ -8,26 +7,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { startOfToday, toDate } from "../utils/dates.js";
 import { sendReceiptEmail } from "../utils/receiptEmail.js";
 
-const razorpayRequest = async (path, method, body) => {
-  const credentials = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString("base64");
-  const response = await fetch(`https://api.razorpay.com/v1/${path}`, {
-    method,
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.description || "Razorpay request failed");
-  return data;
-};
-
 export const createBooking = asyncHandler(async (req, res) => {
   if (req.user.verificationStatus === "pending" || req.user.verificationStatus === "rejected") throw new ApiError(403, "Your profile must be verified before booking");
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) throw new ApiError(503, "Online payments are not configured yet. Add Razorpay test keys to the backend environment.");
 
   const { propertyId, checkIn, checkOut } = req.body;
   if (!propertyId || !checkIn || !checkOut) throw new ApiError(400, "Select your dates");
@@ -39,7 +20,7 @@ export const createBooking = asyncHandler(async (req, res) => {
   if (outDate <= inDate) throw new ApiError(400, "Check-out must be after check-in");
 
   const property = await Property.findById(propertyId);
-  if (!property || property.isActive === false || (property.approvalStatus && property.approvalStatus !== "approved")) throw new ApiError(404, "Property not found");
+  if (!property || property.isActive === false || property.isPublished === false || (property.approvalStatus && property.approvalStatus !== "approved")) throw new ApiError(404, "Property not found");
   if (property.owner.equals(req.user._id)) throw new ApiError(400, "You cannot book your own listing");
 
   await Booking.updateMany(
@@ -60,7 +41,6 @@ export const createBooking = asyncHandler(async (req, res) => {
   const nights = Math.floor((outDate - inDate) / 86400000);
   const totalPrice = nights * property.price;
 
-  const paymentExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const booking = await Booking.create({
     property: propertyId,
     user: req.user._id,
@@ -70,85 +50,31 @@ export const createBooking = asyncHandler(async (req, res) => {
     nights,
     totalPrice,
     userPays: totalPrice,
-    paymentExpiresAt,
-    status: "pending_payment",
+    paymentExpiresAt: null,
+    paymentMethod: "cash_on_checkin",
+    paymentStatus: "pending",
+    status: "confirmed",
   });
-  try {
-    const order = await razorpayRequest("orders", "POST", {
-      amount: Math.round(totalPrice * 100),
-      currency: process.env.RAZORPAY_CURRENCY || "INR",
-      receipt: `stay_${booking._id}`,
-      notes: { bookingId: String(booking._id), propertyId: String(property._id) },
-    });
-    booking.razorpayOrderId = order.id;
-    await booking.save();
-    res.status(201).json(new ApiResponse(201, {
-      booking,
-      payment: { keyId, orderId: order.id, amount: order.amount, currency: order.currency },
-    }, "Payment order created"));
-  } catch (error) {
-    await Booking.findByIdAndUpdate(booking._id, { status: "cancelled" });
-    throw new ApiError(502, "Could not start payment. Please try again.");
-  }
+  res.status(201).json(new ApiResponse(201, { booking }, "Stay reserved. Pay the host at check-in."));
 });
 
-export const verifyBookingPayment = asyncHandler(async (req, res) => {
-  const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature } = req.body;
-  if (!orderId || !paymentId || !signature) throw new ApiError(400, "Payment verification details are incomplete");
-  const booking = await Booking.findOne({
-    _id: req.params.id,
-    user: req.user._id,
-    status: "pending_payment",
-    razorpayOrderId: orderId,
-    paymentExpiresAt: { $gt: new Date() },
-  });
-  if (!booking) throw new ApiError(404, "Payment session expired or booking not found. Please start again.");
-
-  const expected = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(`${booking.razorpayOrderId}|${paymentId}`).digest("hex");
-  const expectedBytes = Buffer.from(expected, "hex");
-  const receivedBytes = /^[a-f0-9]{64}$/i.test(signature) ? Buffer.from(signature, "hex") : Buffer.alloc(0);
-  if (expectedBytes.length !== receivedBytes.length || !crypto.timingSafeEqual(expectedBytes, receivedBytes)) {
-    throw new ApiError(400, "Payment signature could not be verified");
+export const recordCashPayment = asyncHandler(async (req, res) => {
+  const booking = await Booking.findOne({ _id: req.params.bookingId, status: "confirmed" });
+  if (!booking) throw new ApiError(404, "Confirmed booking not found");
+  if (!await Property.exists({ _id: booking.property, owner: req.user._id })) {
+    throw new ApiError(403, "Only the host for this stay can record payment");
+  }
+  if (booking.paymentMethod !== "cash_on_checkin") throw new ApiError(400, "This booking is not set to pay at check-in");
+  if (booking.paymentStatus === "paid") throw new ApiError(409, "Payment has already been recorded");
+  if (new Date() < booking.checkIn || new Date() >= booking.checkOut) {
+    throw new ApiError(400, "Cash payment can only be recorded during the booked stay");
   }
 
-  try {
-    let payment = await razorpayRequest(`payments/${encodeURIComponent(paymentId)}`, "GET");
-    if (payment.status === "authorized" && payment.order_id === booking.razorpayOrderId) {
-      payment = await razorpayRequest(`payments/${encodeURIComponent(paymentId)}/capture`, "POST", {
-        amount: Math.round(booking.totalPrice * 100),
-        currency: process.env.RAZORPAY_CURRENCY || "INR",
-      });
-    }
-    if (payment.order_id !== booking.razorpayOrderId || payment.amount !== Math.round(booking.totalPrice * 100) || payment.currency !== (process.env.RAZORPAY_CURRENCY || "INR") || payment.status !== "captured") {
-      throw new ApiError(400, "Payment is not captured for this booking");
-    }
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(502, "Could not confirm payment status. Please refresh your bookings shortly.");
-  }
-
-  booking.status = "confirmed";
-  booking.paymentExpiresAt = null;
-  booking.razorpayPaymentId = paymentId;
+  booking.paymentStatus = "paid";
+  booking.paymentReceivedAt = new Date();
+  booking.paymentReceivedBy = req.user._id;
   await booking.save();
-  const receipt = await Booking.findById(booking._id)
-    .populate({ path: "property", populate: { path: "owner", select: "name email phone" } })
-    .populate("user", "name email")
-    .populate("partner", "name");
-  let receiptEmailSent = false;
-  if (!booking.receiptEmailSentAt) {
-    try {
-      receiptEmailSent = await sendReceiptEmail(receipt);
-      if (receiptEmailSent) {
-        booking.receiptEmailSentAt = new Date();
-        await booking.save();
-      }
-    } catch (error) {
-      console.error("Booking receipt email could not be sent:", error.message);
-    }
-  }
-  res.json(new ApiResponse(200, { booking, receiptEmailSent, receiptEmailConfigured: Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM) }, "Payment verified and booking confirmed"));
+  res.json(new ApiResponse(200, booking, "Cash payment recorded"));
 });
 
 export const getBookingReceipt = asyncHandler(async (req, res) => {
@@ -177,6 +103,7 @@ export const emailBookingReceipt = asyncHandler(async (req, res) => {
     .populate("user", "name email")
     .populate("partner", "name");
   if (!booking) throw new ApiError(404, "Confirmed booking receipt not found");
+  if (booking.paymentStatus !== "paid") throw new ApiError(409, "Payment must be received before emailing a payment receipt");
   if (booking.receiptEmailSentAt) return res.json(new ApiResponse(200, { sent: true }, "Receipt email was already sent"));
   if (!process.env.RESEND_API_KEY || !process.env.MAIL_FROM) throw new ApiError(503, "Receipt email is not configured yet");
   try {
@@ -195,7 +122,7 @@ export const getMyBookings = asyncHandler(async (req, res) => {
   const bookings = await Booking.find({
     $or: [{ user: req.user._id }, { partner: req.user._id }],
   })
-    .populate("property", "title location images price")
+    .populate("property", "title location images price type")
     .populate("user", "name")
     .populate("partner", "name")
     .sort({ createdAt: -1 });
@@ -246,7 +173,7 @@ export const getOwnerOverview = asyncHandler(async (req, res) => {
   }
   const activeBookings = bookings.filter((booking) => booking.checkIn <= now && booking.checkOut > now).length;
   const upcomingBookings = bookings.filter((booking) => booking.checkIn > now).length;
-  const totalCollected = bookings.reduce((sum, booking) => sum + (booking.razorpayPaymentId ? booking.totalPrice : 0), 0);
+  const totalCollected = bookings.reduce((sum, booking) => sum + (booking.paymentStatus === "paid" ? booking.totalPrice : 0), 0);
   const confirmedValue = bookings.reduce((sum, booking) => sum + booking.totalPrice, 0);
   res.json(new ApiResponse(200, {
     stats: { totalCollected, confirmedValue, confirmedBookings: bookings.length, totalGuests, arrivalsToday, departuresToday, checkedInGuests, checkedOutGuests, activeBookings, upcomingBookings },
@@ -263,6 +190,12 @@ export const updateGuestAttendance = asyncHandler(async (req, res) => {
   if (!property) throw new ApiError(403, "Only the host for this stay can update guest arrival");
   const guestId = req.params.guestId;
   if (![String(booking.user), booking.partner ? String(booking.partner) : ""].includes(guestId)) throw new ApiError(404, "Guest is not part of this booking");
+  if (status === "checked_in" && booking.paymentMethod === "cash_on_checkin" && booking.paymentStatus !== "paid") {
+    throw new ApiError(409, "Record the cash payment before checking the guest in");
+  }
+  if (status === "checked_in" && (new Date() < booking.checkIn || new Date() >= booking.checkOut)) {
+    throw new ApiError(400, "Guests can only be verified and checked in during their booked stay");
+  }
   let attendance = booking.guestAttendance.find((entry) => String(entry.guest) === guestId);
   if (!attendance) {
     booking.guestAttendance.push({ guest: guestId, status: "expected" });

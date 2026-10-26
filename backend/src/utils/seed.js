@@ -1,10 +1,12 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import { User } from "../models/user.model.js";
+import { isStrongPassword, passwordRequirementsMessage } from "./validation.js";
 
 const email = process.env.SUPERADMIN_EMAIL;
 const password = process.env.SUPERADMIN_PASSWORD;
 if (!email || !password) throw new Error("Set SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD in backend/.env first");
+if (!isStrongPassword(password)) throw new Error(passwordRequirementsMessage);
 await mongoose.connect(process.env.MONGODB_URI);
 try {
   const exists = await User.findOne({ email });

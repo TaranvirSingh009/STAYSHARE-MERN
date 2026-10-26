@@ -30,6 +30,18 @@ export function AuthProvider({ children }) {
     return res.data.data;
   };
 
+  const requestAccountDeletion = async () => {
+    const res = await api.post("/auth/deletion-request");
+    setUser(res.data.data);
+    return res.data.data;
+  };
+
+  const cancelAccountDeletionRequest = async () => {
+    const res = await api.delete("/auth/deletion-request");
+    setUser(res.data.data);
+    return res.data.data;
+  };
+
   const logout = async () => {
     try {
       await api.post("/auth/logout");
@@ -39,7 +51,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, updateProfile, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, updateProfile, requestAccountDeletion, cancelAccountDeletionRequest, logout }}>
       {children}
     </AuthContext.Provider>
   );

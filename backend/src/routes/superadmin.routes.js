@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getStats, getUsers, updateRole, deleteUser, verifyUser, reviewListing } from "../controllers/superadmin.controller.js";
+import { getStats, getUsers, updateRole, deleteUser, verifyUser, reviewListing, getDeletionRequests, reviewDeletionRequest } from "../controllers/superadmin.controller.js";
 import { Property } from "../models/property.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -11,6 +11,8 @@ const router = Router();
 router.use(verifyJWT, authorizeRoles("superadmin"));
 router.get("/stats", getStats);
 router.get("/users", getUsers);
+router.get("/deletion-requests", getDeletionRequests);
+router.patch("/users/:id/deletion-request", reviewDeletionRequest);
 router.get("/listings/pending", asyncHandler(async (_req, res) => {
   const listings = await Property.find({ approvalStatus: "pending" }).populate("owner", "name email").sort({ createdAt: -1 });
   res.json(new ApiResponse(200, listings));

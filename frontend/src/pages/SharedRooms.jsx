@@ -44,7 +44,7 @@ export default function SharedRooms() {
   return (
     <div>
       <h2>Rooms looking for a partner</h2>
-      <p className="muted">Join a booked room and pay only half.</p>
+      <p className="muted">Requests are available to verified guests with matching profile details. If the booking owner accepts, each guest pays half directly to the host at check-in.</p>
       {message && <p className="notice">{message}</p>}
       {loading && <p className="muted">Loading shared rooms...</p>}
       {!loading && shares.length === 0 && !message && <p>No open requests right now. Check back soon.</p>}

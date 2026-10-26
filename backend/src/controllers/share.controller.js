@@ -10,11 +10,18 @@ import { User } from "../models/user.model.js";
 export const expireShares = async () => {
   const expired = await ShareRequest.find({ status: "open", expiresAt: { $lte: new Date() } });
   if (!expired.length) return;
-  await ShareRequest.updateMany({ _id: { $in: expired.map((s) => s._id) } }, { status: "expired" });
-  await Booking.updateMany(
-    { _id: { $in: expired.map((s) => s.booking) }, shareStatus: "open" },
-    { shareStatus: "none" }
-  );
+  const expiredIds = expired.map((share) => share._id);
+  await Promise.all([
+    ShareRequest.updateMany({ _id: { $in: expiredIds } }, { status: "expired" }),
+    Booking.updateMany(
+      { _id: { $in: expired.map((share) => share.booking) }, shareStatus: "open" },
+      { shareStatus: "none" }
+    ),
+    ShareApplication.updateMany(
+      { share: { $in: expiredIds }, status: "pending" },
+      { status: "rejected" }
+    ),
+  ]);
 };
 
 export const createShare = asyncHandler(async (req, res) => {
@@ -25,7 +32,8 @@ export const createShare = asyncHandler(async (req, res) => {
   if (booking.shareStatus !== "none") throw new ApiError(400, "Already shared or requested");
   if (booking.checkIn <= startOfToday()) throw new ApiError(400, "Too late to find a partner");
 
-  const hours = Number(process.env.SHARE_WINDOW_HOURS) || 24;
+  const configuredHours = Number(process.env.SHARE_WINDOW_HOURS) || 24;
+  const hours = Math.min(24, Math.max(1, configuredHours));
   const byWindow = new Date(Date.now() + hours * 3600 * 1000);
   const expiresAt = booking.checkIn < byWindow ? booking.checkIn : byWindow;
 
@@ -75,11 +83,16 @@ export const applyToShare = asyncHandler(async (req, res) => {
   );
   if (!candidate) throw new ApiError(400, "This request is no longer available");
   const [applicant, owner, booking] = await Promise.all([
-    User.findById(req.user._id), User.findById(candidate.requester), Booking.findById(candidate.booking).populate("property", "owner"),
+    User.findById(req.user._id),
+    User.findById(candidate.requester),
+    Booking.findById(candidate.booking).populate("property", "owner"),
   ]);
+  if (!booking || booking.status !== "confirmed" || booking.shareStatus !== "open" || booking.checkIn <= now || !booking.property) {
+    throw new ApiError(400, "This stay is no longer available to share");
+  }
   if (!applicant || applicant.verificationStatus === "pending" || applicant.verificationStatus === "rejected") throw new ApiError(403, "Your profile must be verified before applying");
   if (!owner || !["male", "female", "non_binary"].includes(applicant.gender) || applicant.gender !== owner.gender) throw new ApiError(403, "Room sharing is available only between guests with the same verified gender");
-  if (!booking || booking.property.owner.equals(applicant._id)) throw new ApiError(400, "You cannot apply to your own listing");
+  if (booking.property.owner.equals(applicant._id)) throw new ApiError(400, "You cannot apply to your own listing");
   const application = await ShareApplication.findOneAndUpdate(
     { share: candidate._id, applicant: applicant._id },
     { $setOnInsert: { status: "pending", message: String(req.body.message || "").trim() } },
@@ -90,7 +103,8 @@ export const applyToShare = asyncHandler(async (req, res) => {
 });
 
 export const getMyApplications = asyncHandler(async (req, res) => {
-  const shares = await ShareRequest.find({ requester: req.user._id }).select("_id booking status");
+  await expireShares();
+  const shares = await ShareRequest.find({ requester: req.user._id, status: "open", expiresAt: { $gt: new Date() } }).select("_id booking status expiresAt");
   const applications = await ShareApplication.find({ share: { $in: shares.map((s) => s._id) }, status: "pending" })
     .populate("applicant", "name email gender phone")
     .populate({ path: "share", populate: { path: "booking", populate: { path: "property", select: "title location" } } })
@@ -136,6 +150,9 @@ export const cancelShare = asyncHandler(async (req, res) => {
     { status: "cancelled" }
   );
   if (!share) throw new ApiError(404, "No open request found");
-  await Booking.findByIdAndUpdate(req.params.bookingId, { shareStatus: "none" });
+  await Promise.all([
+    Booking.findByIdAndUpdate(req.params.bookingId, { shareStatus: "none" }),
+    ShareApplication.updateMany({ share: share._id, status: "pending" }, { status: "rejected" }),
+  ]);
   res.json(new ApiResponse(200, null, "Request cancelled"));
 });

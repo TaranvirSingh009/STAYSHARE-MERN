@@ -1,12 +1,18 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { isStrongPassword, passwordRequirementsMessage } from "../utils/validation.js";
 
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, minlength: 6 },
+    password: {
+      type: String,
+      required: true,
+      minlength: 9,
+      validate: { validator: isStrongPassword, message: passwordRequirementsMessage },
+    },
     role: { type: String, enum: ["superadmin", "admin", "user"], default: "user" },
     phone: { type: String, trim: true, default: "" },
     gender: { type: String, enum: ["male", "female", "non_binary", "prefer_not_to_say"], default: "prefer_not_to_say" },
@@ -16,6 +22,9 @@ const userSchema = new mongoose.Schema(
     agreementVersion: { type: String, default: "" },
     avatar: { type: String, default: "" },
     refreshToken: { type: String },
+    deletionRequestStatus: { type: String, enum: ["none", "pending", "rejected"], default: "none" },
+    deletionRequestedAt: { type: Date, default: null },
+    deletionRequestNote: { type: String, default: "" },
   },
   { timestamps: true }
 );

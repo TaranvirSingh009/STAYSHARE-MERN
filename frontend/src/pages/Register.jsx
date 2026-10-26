@@ -4,6 +4,13 @@ import { useAuth } from "../context/AuthContext";
 import { errMsg } from "../api/axios";
 
 const welcomeLines = ["A better stay starts here.", "Your next favourite place awaits.", "Make room for a little adventure."];
+const passwordRules = [
+  ["At least 9 characters", (password) => password.length >= 9],
+  ["One uppercase letter", (password) => /[A-Z]/.test(password)],
+  ["One lowercase letter", (password) => /[a-z]/.test(password)],
+  ["One number", (password) => /\d/.test(password)],
+  ["One special character", (password) => /[^A-Za-z0-9]/.test(password)],
+];
 
 export default function Register() {
   const { register } = useAuth();
@@ -67,13 +74,20 @@ export default function Register() {
         <label className="auth-label" htmlFor="register-email">Email address</label>
         <input id="register-email" name="email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={handleChange} required />
         <label className="auth-label" htmlFor="register-phone">Phone number</label>
-        <input id="register-phone" name="phone" type="tel" autoComplete="tel" placeholder="+91 98765 43210" value={form.phone} onChange={handleChange} required />
+        <input id="register-phone" name="phone" type="tel" inputMode="numeric" autoComplete="tel-national" pattern="[0-9]{10}" maxLength={10} title="Enter a 10-digit phone number" placeholder="9876543210" value={form.phone} onChange={handleChange} required />
         <label className="auth-label" htmlFor="register-gender">Gender (used to match room-share requests)</label>
         <select id="register-gender" name="gender" value={form.gender} onChange={handleChange} required>
           <option value="" disabled>Select an option</option><option value="male">Man</option><option value="female">Woman</option><option value="non_binary">Non-binary</option><option value="prefer_not_to_say">Prefer not to say</option>
         </select>
         <label className="auth-label" htmlFor="register-password">Password</label>
-        <input id="register-password" name="password" type="password" autoComplete="new-password" minLength={6} placeholder="At least 6 characters" value={form.password} onChange={handleChange} required />
+        <input id="register-password" name="password" type="password" autoComplete="new-password" minLength={9} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{9,}" title="Use at least 9 characters with uppercase and lowercase letters, a number, and a special character" placeholder="Create a strong password" value={form.password} onChange={handleChange} required />
+        <ul className="password-requirements" aria-label="Password requirements">
+          {passwordRules.map(([label, isMet]) => (
+            <li className={isMet(form.password) ? "met" : ""} key={label}>
+              <span aria-hidden="true">{isMet(form.password) ? "✓" : "○"}</span> {label}
+            </li>
+          ))}
+        </ul>
         <label className="agreement-consent"><input type="checkbox" name="acceptedAgreement" checked={form.acceptedAgreement} onChange={(e) => setForm({ ...form, acceptedAgreement: e.target.checked })} required /> <span>I agree to the <Link to="/user-agreement" target="_blank" rel="noreferrer">User Agreement</Link>.</span></label>
         {error && <p className="error auth-error" role="alert">{error}</p>}
         <button className="btn-primary auth-submit" disabled={saving}>{saving ? "Creating your account…" : "Create account"}</button>

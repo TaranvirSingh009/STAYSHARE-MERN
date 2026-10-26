@@ -82,6 +82,18 @@ textarea { min-height: 90px; }
 .auth-footer { margin: 5px 0 0; text-align: center; font-size: 13px; }
 .auth-footer a { color: var(--brand); font-weight: 700; }
 .auth-error { margin: 0; font-size: 13px; }
+.password-requirements { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin: -5px 0 4px; padding: 0; color: var(--muted); list-style: none; font-size: 12px; }
+.password-requirements li.met { color: #16804a; }
+.account-settings { border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+.account-settings h2, .account-settings h3 { margin: 0; }
+.room-type-editor { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.room-type-editor h4, .room-type-editor p { margin: 0; }
+.room-type-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.room-type-fields legend { padding: 0 5px; font-size: 13px; font-weight: 650; }
+.hotel-room-management { display: grid; flex-basis: 100%; gap: 10px; }
+.room-type-list { margin-top: 24px; }
+.room-type-card { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; margin: 9px 0; }
+.room-type-card p { margin: 4px 0 0; }
 .login-column { display: flex; flex-direction: column; justify-content: center; padding: 28px 24px; }
 .login-column .auth-card { padding: 18px 24px 28px; }
 .login-aside { background: #fff4f1; color: var(--ink); }
@@ -244,3 +256,4 @@ th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); 
   .receipt-heading { flex-direction: column; }
 }
 @media (max-width: 420px) { .demo-account-list { grid-template-columns: 1fr; } .demo-account { min-height: auto; } }
+@media (max-width: 560px) { .room-type-fields { grid-template-columns: 1fr; } .room-type-card { align-items: flex-start; flex-direction: column; } }

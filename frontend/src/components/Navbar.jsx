@@ -31,6 +31,7 @@ export default function Navbar() {
         )}
         {user?.role === "admin" && <Link to="/admin">Host dashboard</Link>}
         {user?.role === "superadmin" && <Link to="/superadmin">Control panel</Link>}
+        {["user", "admin"].includes(user?.role) && <Link to="/account">Account</Link>}
         <Link to="/help-support">Help</Link>
         {user ? (
           <button className="btn-outline" onClick={handleLogout}>Log out ({user.name})</button>

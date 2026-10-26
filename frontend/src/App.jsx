@@ -14,6 +14,7 @@ import Receipt from "./pages/Receipt";
 import HelpSupport from "./pages/HelpSupport";
 import About from "./pages/About";
 import UserAgreement from "./pages/UserAgreement";
+import AccountSettings from "./pages/AccountSettings";
 import NotFound from "./pages/NotFound";
 import Footer from "./components/Footer";
 
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/help-support" element={<HelpSupport />} />
           <Route path="/about" element={<About />} />
           <Route path="/user-agreement" element={<UserAgreement />} />
+          <Route path="/account" element={<ProtectedRoute roles={["user", "admin"]}><AccountSettings /></ProtectedRoute>} />
           <Route path="/property/:id" element={<PropertyDetails />} />
           <Route path="/receipt/:id" element={<ProtectedRoute roles={["user"]}><Receipt /></ProtectedRoute>} />
           <Route
